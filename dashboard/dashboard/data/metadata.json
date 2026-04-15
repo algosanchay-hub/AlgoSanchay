@@ -1,0 +1,12 @@
+{
+  "Elite Wealth Engine V2": {
+    "creator": "AlgoSanchay",
+    "underlying": "Nifty",
+    "behavior": "Directional",
+    "timeframe": "Positional",
+    "contract": "Weekly",
+    "type": "Selling",
+    "capital_display": "₹1L",
+    "active": true
+  }
+}
