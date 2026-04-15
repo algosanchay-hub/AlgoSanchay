@@ -1112,27 +1112,122 @@ async function doUpload() {
 }
 
 /* ── DAILY P&L PAGE ──────────────────────── */
-let DP_DATA   = {}
-let DP_DATE   = null
-let DP_DAYS   = 30
+let DP_DATA     = {}
+let DP_DATE     = null
+let DP_DAYS     = 30
+let DP_CAPITALS = {}   // { strategyName: capital }
+
+/* ── Helpers ── */
+function dpCap(name)  { return DP_CAPITALS[name] || CAPITAL }
+function dpTotalCap() { return (DP_DATA.names || []).reduce((s, n) => s + dpCap(n), 0) }
+
+/* Recompute a raw history row using per-strategy capitals */
+function dpRecompute(rawHistory) {
+  let cum = 0
+  return [...rawHistory].reverse().map(h => {
+    const strats   = {}
+    let portInr    = 0
+    let active     = 0
+    for (const [name, d] of Object.entries(h.strategies || {})) {
+      const cap = dpCap(name)
+      const inr = Math.round(d.pct / 100 * cap)
+      strats[name] = { pct: d.pct, inr }
+      portInr += inr
+      active++
+    }
+    const totalCap = dpTotalCap() || CAPITAL
+    const portPct  = active ? Math.round(portInr / totalCap * 10000) / 100 : 0
+    cum += portInr
+    return { ...h, strategies: strats, portfolio_inr: portInr, portfolio_pct: portPct,
+             cumulative: Math.round(totalCap + cum), active }
+  }).reverse()
+}
 
 async function renderDailyPnl() {
   const res = await fetch(`/algodashboard/api/daily?capital=${CAPITAL}`)
-  DP_DATA = await res.json()
-  if (!DP_DATA.latest_date) { document.getElementById('dp-kpi-row').innerHTML = '<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--muted)">No data found — upload strategy Excel files first.</div>'; return }
+  DP_DATA   = await res.json()
+  if (!DP_DATA.latest_date) {
+    document.getElementById('dp-kpi-row').innerHTML =
+      '<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--muted)">No data found — upload strategy Excel files first.</div>'
+    return
+  }
+  // Load saved capitals from localStorage
+  const saved = localStorage.getItem('dp_capitals')
+  if (saved) try { DP_CAPITALS = JSON.parse(saved) } catch(e) { DP_CAPITALS = {} }
+
   DP_DATE = DP_DATE && DP_DATA.history.find(h => h.d === DP_DATE) ? DP_DATE : DP_DATA.latest_date
   const inp = document.getElementById('dp-date-input')
   if (inp) inp.value = DP_DATE
+  renderDPCapitalPanel()
   renderDPView()
 }
 
 function renderDPView() {
-  const row = DP_DATA.history?.find(h => h.d === DP_DATE) || DP_DATA.history?.[0]
+  const computed = dpRecompute(DP_DATA.history || [])
+  const row = computed.find(h => h.d === DP_DATE) || computed[0]
   if (!row) return
   renderDPKPIs(row)
   renderDPStrategyCards(row)
-  renderDPCumChart()
-  renderDPHistory()
+  renderDPCumChart(computed)
+  renderDPHistory(computed)
+}
+
+/* ── Capital Panel ── */
+function renderDPCapitalPanel() {
+  const names = DP_DATA.names || []
+  const inp   = document.getElementById('dp-capital-inputs')
+  if (!inp) return
+  inp.innerHTML = names.map(name => {
+    const cap = dpCap(name)
+    return `
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg);padding:8px 10px;border-radius:7px;border:1px solid var(--border)">
+      <div style="flex:1;font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${name}">${name}</div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="font-size:12px;color:var(--muted)">₹</span>
+        <input type="number" id="dpc-${CSS.escape(name)}" value="${cap}" min="1000" step="10000"
+          style="width:110px;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:inherit;outline:none;text-align:right"
+          oninput="updateDPGrandTotal()">
+      </div>
+    </div>`
+  }).join('')
+  updateDPGrandTotal()
+  updateDPTotalDisplay()
+}
+
+function updateDPGrandTotal() {
+  const names = DP_DATA.names || []
+  let total = 0
+  names.forEach(name => {
+    const el = document.getElementById(`dpc-${CSS.escape(name)}`)
+    if (el) total += parseInt(el.value) || 0
+  })
+  const el = document.getElementById('dp-grand-total')
+  if (el) el.textContent = '₹' + total.toLocaleString('en-IN')
+}
+
+function updateDPTotalDisplay() {
+  const total = dpTotalCap()
+  const el = document.getElementById('dp-total-cap-display')
+  if (el) el.textContent = `Total: ₹${total.toLocaleString('en-IN')}`
+}
+
+function applyDPCapitals() {
+  const names = DP_DATA.names || []
+  names.forEach(name => {
+    const el = document.getElementById(`dpc-${CSS.escape(name)}`)
+    if (el) DP_CAPITALS[name] = parseInt(el.value) || CAPITAL
+  })
+  localStorage.setItem('dp_capitals', JSON.stringify(DP_CAPITALS))
+  updateDPTotalDisplay()
+  renderDPView()
+}
+
+function toggleDPCapitalPanel() {
+  const body  = document.getElementById('dp-capital-body')
+  const arrow = document.getElementById('dp-panel-arrow')
+  const open  = body?.style.display !== 'none'
+  if (body)  body.style.display  = open ? 'none' : 'block'
+  if (arrow) arrow.textContent   = open ? '▼ expand' : '▲ collapse'
 }
 
 /* KPI Row */
@@ -1148,11 +1243,11 @@ function renderDPKPIs(row) {
   const kpis = [
     { label:'DATE',              main: date,                                              mainCls: '', sub: `${row.active} strategies active` },
     { label:'PORTFOLIO % TODAY', main: (row.portfolio_pct >= 0 ? '+' : '') + row.portfolio_pct.toFixed(2) + '%', mainCls: row.portfolio_pct >= 0 ? 'green' : 'red', sub: 'Avg across strategies' },
-    { label:'PORTFOLIO ₹ TODAY', main: fmtINRSigned(row.portfolio_inr),                  mainCls: row.portfolio_inr >= 0 ? 'green' : 'red', sub: `Capital: ${fmtINR(DP_DATA.capital)}` },
+    { label:'PORTFOLIO ₹ TODAY', main: fmtINRSigned(row.portfolio_inr),                  mainCls: row.portfolio_inr >= 0 ? 'green' : 'red', sub: `Total capital: ${fmtINR(dpTotalCap())}` },
     { label:'BEST STRATEGY',     main: best != null ? (best >= 0 ? '+' : '') + best.toFixed(2) + '%' : '—', mainCls: 'green', sub: bestName ? bestName.slice(0,20) : '—' },
-    { label:'CUMULATIVE VALUE',  main: fmtINR(row.cumulative),                            mainCls: 'orange', sub: `From ₹${(DP_DATA.capital/100000).toFixed(1)}L start` },
   ]
   const el = document.getElementById('dp-kpi-row')
+  el.style.gridTemplateColumns = `repeat(${kpis.length},1fr)`
   el.innerHTML = kpis.map(k => `
     <div class="kpi-card">
       <div class="kpi-label">${k.label}</div>
@@ -1190,9 +1285,9 @@ function renderDPStrategyCards(row) {
 }
 
 /* Cumulative Chart */
-function renderDPCumChart() {
+function renderDPCumChart(computed) {
   destroyChart('dp-cum')
-  const history = DP_DATA.history || []
+  const history = computed || dpRecompute(DP_DATA.history || [])
   const days    = parseInt(document.querySelector('.dp-tf.active')?.dataset.dp || '30')
   const raw     = days > 0 ? history.slice(0, days) : history
   const sorted  = [...raw].reverse()
@@ -1201,38 +1296,34 @@ function renderDPCumChart() {
   if (!ctx) return
 
   charts['dp-cum'] = new Chart(ctx, {
-    type: 'line',
+    type: 'bar',
     data: { datasets: [
-      { label: 'Portfolio Value',
-        data: sorted.map(h => ({ x: h.d, y: h.cumulative })),
-        borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.07)',
-        fill: true, borderWidth: 2, pointRadius: 0, tension: 0.1 },
-      { label: 'Base Capital',
-        data: sorted.map(h => ({ x: h.d, y: DP_DATA.capital })),
-        borderColor: '#94a3b8', borderDash: [5,3], borderWidth: 1.5,
-        pointRadius: 0, fill: false },
+      { label: 'Daily Portfolio ₹',
+        data: sorted.map(h => ({ x: h.d, y: h.portfolio_inr })),
+        backgroundColor: sorted.map(h => h.portfolio_inr >= 0 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.7)'),
+        borderRadius: 3, borderSkipped: false },
     ]},
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { display: true, position: 'top', labels: { font: { size: 11 }, boxWidth: 10 } },
-        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtINR(c.parsed.y)}` }}
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${fmtINRSigned(c.parsed.y)}` }}
       },
       scales: {
-        x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yy' } },
-             grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+        x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'dd MMM' } },
+             grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 12 } },
         y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 },
-             callback: v => v >= 100000 ? '₹'+(v/100000).toFixed(1)+'L' : '₹'+(v/1000).toFixed(0)+'K' }}
+             callback: v => v >= 1000 ? '₹'+(v/1000).toFixed(0)+'K' : '₹'+v }}
       }
     }
   })
 }
 
 /* History Table */
-function renderDPHistory() {
+function renderDPHistory(computed) {
   const names   = DP_DATA.names || []
-  const history = DP_DATA.history || []
+  const history = computed || dpRecompute(DP_DATA.history || [])
   const rows    = parseInt(document.getElementById('dp-rows-select')?.value || '30')
   const slice   = rows > 0 ? history.slice(0, rows) : history
 
@@ -1241,7 +1332,6 @@ function renderDPHistory() {
     ${names.map(n => `<th class="num" title="${n}">${n.length > 14 ? n.slice(0,14)+'…' : n}</th>`).join('')}
     <th class="num">PORTFOLIO %</th>
     <th class="num">PORTFOLIO ₹</th>
-    <th class="num">CUMULATIVE</th>
   </tr></thead>`
 
   const tbody = slice.map(h => {
@@ -1263,7 +1353,6 @@ function renderDPHistory() {
       ${cells}
       <td class="num ${ppCls}" style="font-weight:600">${h.portfolio_pct >= 0 ? '+' : ''}${h.portfolio_pct.toFixed(2)}%</td>
       <td class="num ${piCls}">${fmtINRSigned(h.portfolio_inr)}</td>
-      <td class="num orange" style="font-weight:600">${fmtINR(h.cumulative)}</td>
     </tr>`
   }).join('')
 
@@ -1275,19 +1364,17 @@ function dpSelectDate(dateStr) {
   DP_DATE = dateStr
   const inp = document.getElementById('dp-date-input')
   if (inp) inp.value = dateStr
-  const row = DP_DATA.history?.find(h => h.d === dateStr)
-  if (row) {
-    renderDPKPIs(row)
-    renderDPStrategyCards(row)
-  }
-  renderDPHistory()
+  const computed = dpRecompute(DP_DATA.history || [])
+  const row = computed.find(h => h.d === dateStr)
+  if (row) { renderDPKPIs(row); renderDPStrategyCards(row) }
+  renderDPHistory(computed)
 }
 
 function dpChangeDate(dir) {
-  const history = DP_DATA.history || []
-  const idx     = history.findIndex(h => h.d === DP_DATE)
-  const newIdx  = idx + dir   // +1 = older, -1 = newer (history is latest-first)
-  if (newIdx >= 0 && newIdx < history.length) dpSelectDate(history[newIdx].d)
+  const computed = dpRecompute(DP_DATA.history || [])
+  const idx      = computed.findIndex(h => h.d === DP_DATE)
+  const newIdx   = idx + dir
+  if (newIdx >= 0 && newIdx < computed.length) dpSelectDate(computed[newIdx].d)
 }
 
 function dpGoToday() {
@@ -1299,7 +1386,7 @@ document.addEventListener('click', e => {
   if (e.target.classList.contains('dp-tf')) {
     document.querySelectorAll('.dp-tf').forEach(b => b.classList.remove('active'))
     e.target.classList.add('active')
-    renderDPCumChart()
+    renderDPCumChart(dpRecompute(DP_DATA.history || []))
   }
 })
 
