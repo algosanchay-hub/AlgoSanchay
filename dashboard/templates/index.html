@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Intelligence — AlgoSanchay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  #loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,0.85);z-index:300;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;font-size:13px;color:#64748b}
+  .strategy-sel-wrap{display:flex;align-items:center;gap:8px;font-size:12px;color:#64748b}
+  .strategy-sel-wrap select{padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:12px;font-family:inherit;outline:none}
+  code{background:#f1f5f9;padding:2px 5px;border-radius:3px;font-size:11px}
+</style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <span>Loading strategies…</span>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal-overlay" id="upload-modal">
+  <div class="modal">
+    <h3>Upload Strategy Excel</h3>
+    <p style="font-size:12px;color:#64748b;margin-bottom:14px">
+      Excel must have a <strong>Date</strong> column and one or more PnL (%) columns. Each column = one strategy.
+    </p>
+    <div class="modal-drop" onclick="document.getElementById('file-input').click()">
+      <div style="font-size:24px;margin-bottom:8px">📊</div>
+      <div>Click to select .xlsx file</div>
+      <div style="font-size:11px;margin-top:4px">or drag & drop</div>
+      <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none" onchange="this.parentElement.querySelector('div:nth-child(2)').textContent=this.files[0]?.name||'Click to select .xlsx file'">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeUpload()">Cancel</button>
+      <button class="ai-btn" style="width:auto;padding:7px 16px" onclick="doUpload()">Upload &amp; Load</button>
+    </div>
+  </div>
+</div>
+
+<div class="app" style="display:flex;min-height:100vh">
+
+<!-- ── SIDEBAR ─────────────────────────── -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-main">ALGO<span class="logo-slash">/</span>SANCHAY</div>
+    <div class="logo-sub">ADAPTIVE · QUANT · DISCIPLINE</div>
+  </div>
+  <nav class="nav">
+    <a class="nav-item" data-page="overview" href="#">
+      <span class="nav-icon">▦</span> Overview
+    </a>
+    <a class="nav-item" data-page="strategy-universe" href="#">
+      <span class="nav-icon">◈</span> Strategy Universe
+    </a>
+    <a class="nav-item active" data-page="portfolio-intelligence" href="#">
+      <span class="nav-dot"></span> Portfolio Intelligence
+    </a>
+    <a class="nav-item" data-page="capital-ladder" href="#">
+      <span class="nav-icon">⬆</span> Capital Ladder
+    </a>
+    <a class="nav-item" data-page="staircase" href="#">
+      <span class="nav-icon">↗</span> Staircase
+    </a>
+    <a class="nav-item" data-page="market-regime" href="#">
+      <span class="nav-icon">∿</span> Market Regime
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="regime-pill regime-elevated">Elevated</div>
+    <div class="regime-footer-label">Market Regime</div>
+  </div>
+</aside>
+
+<!-- ── MAIN ───────────────────────────── -->
+<div class="main">
+
+<!-- ══════════════════════════════════════
+     PAGE: PORTFOLIO INTELLIGENCE
+══════════════════════════════════════ -->
+<div id="page-portfolio-intelligence" class="page active">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span class="page-title">Portfolio Intelligence</span>
+      <div class="strategy-sel-wrap">
+        <span>Strategy:</span>
+        <select id="strategy-selector"></select>
+      </div>
+    </div>
+    <div class="header-right">
+      <span id="cur-date"></span>
+      <button class="upload-btn" onclick="openUpload()">+ Add Strategy</button>
+      <button class="btn-refresh" onclick="loadData()">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-row" id="kpi-row" style="grid-template-columns:repeat(7,1fr)"></div>
+
+  <!-- Charts Row -->
+  <div class="card">
+    <div class="card-header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="card-title">Portfolio Equity — AI Optimized vs Buy &amp; Hold</span>
+        <div class="chart-legend">
+          <span><span class="legend-dot" style="background:#10b981"></span>AI Optimized</span>
+          <span><span class="legend-dot" style="background:#94a3b8"></span>Buy &amp; Hold</span>
+        </div>
+      </div>
+      <div class="time-filters">
+        <button class="tf" data-p="1m">1M</button>
+        <button class="tf" data-p="3m">3M</button>
+        <button class="tf" data-p="6m">6M</button>
+        <button class="tf" data-p="1y">1Y</button>
+        <button class="tf active" data-p="all">All</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap h240"><canvas id="equityChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Drawdown</span></div>
+    <div class="card-body">
+      <div class="chart-wrap h130"><canvas id="drawdownChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Optimization + Regime Outlook -->
+  <div class="grid-2">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header"><span class="card-title">Optimization Inputs</span></div>
+      <div class="card-body">
+        <div id="optim-inputs" class="optim-grid"></div>
+        <button class="ai-btn" onclick="aiOptimize()">⚡ AI-OPTIMIZE PORTFOLIO</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header"><span class="card-title">Regime Outlook</span></div>
+      <div id="regime-outlook"></div>
+    </div>
+  </div>
+
+  <!-- AI Portfolio Table -->
+  <div class="card" style="margin-top:12px">
+    <div class="card-header">
+      <span class="card-title">AI-Optimized Portfolio</span>
+      <span class="tag">Single Strategy</span>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div style="overflow-x:auto;padding:0 4px">
+        <table class="data-table" id="portfolio-table"></table>
+      </div>
+      <div id="portfolio-summary"></div>
+    </div>
+  </div>
+
+  <!-- Leaderboard + Regime Perf + Decision -->
+  <div class="grid-3" style="margin-top:12px">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header">
+        <span class="card-title">Strategy Leaderboard</span>
+        <span style="font-size:10px;color:var(--muted)">Predicted Sharpe</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table" id="leaderboard-table" style="min-width:220px"></table>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header">
+        <span class="card-title">Regime Performance</span>
+        <span style="font-size:10px;color:var(--muted)">Avg Monthly %</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table" id="regime-perf-table" style="min-width:260px"></table>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header"><span class="card-title">Decision Panel</span></div>
+      <div style="overflow-x:auto">
+        <table class="data-table" id="decision-table" style="min-width:240px"></table>
+      </div>
+    </div>
+  </div>
+</div><!-- /portfolio-intelligence -->
+
+
+<!-- ══════════════════════════════════════
+     PAGE: OVERVIEW
+══════════════════════════════════════ -->
+<div id="page-overview" class="page">
+  <div class="page-header">
+    <span class="page-title">Overview</span>
+    <div class="header-right">
+      <button class="upload-btn" onclick="openUpload()">+ Add Strategy</button>
+      <button class="btn-refresh" onclick="loadData()">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Combined Equity Curves</span></div>
+    <div class="card-body">
+      <div class="chart-wrap h240"><canvas id="ov-equity-chart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Strategy Summary</span></div>
+    <div style="overflow-x:auto">
+      <table class="data-table" id="ov-table" style="min-width:700px"></table>
+    </div>
+  </div>
+  <div id="overview-content"></div>
+</div><!-- /overview -->
+
+
+<!-- ══════════════════════════════════════
+     PAGE: STRATEGY UNIVERSE
+══════════════════════════════════════ -->
+<div id="page-strategy-universe" class="page">
+
+  <!-- LEFT PANEL -->
+  <div class="su-left">
+    <div class="su-header">
+      <div class="su-title">Strategy Universe</div>
+      <div class="su-regime-bar">
+        <span class="su-regime-dot dot-elevated"></span>
+        <strong style="color:#f59e0b">Elevated</strong>
+        <span style="color:#334155">/</span>
+        <span class="su-regime-dot dot-normal"></span>
+        <strong style="color:#10b981">Normal</strong>
+        <span style="color:#475569;font-size:10px">Transitioning</span>
+      </div>
+      <div class="su-regime-stats" id="su-regime-stats">
+        <div class="su-regime-stat">
+          <div class="su-rs-label">Outlook</div>
+          <div class="su-rs-val" style="font-size:16px;color:#f59e0b">66%</div>
+          <div class="su-rs-sub">Confidence</div>
+        </div>
+        <div class="su-regime-stat" id="su-regime-fit">
+          <div class="su-rs-label">Regime Fit</div>
+          <div class="su-rs-val" id="su-fit-val">–/–</div>
+          <div class="su-rs-sub">Strategies</div>
+        </div>
+        <div class="su-regime-stat">
+          <div class="su-rs-label">Active</div>
+          <div class="su-rs-val" id="su-active-val">0</div>
+          <div class="su-rs-sub">Strategies</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="su-filters">
+      <select class="su-filter-select" id="su-f-creator" onchange="applyFilters()">
+        <option value="">All Creators</option>
+      </select>
+      <select class="su-filter-select" id="su-f-underlying" onchange="applyFilters()">
+        <option value="">All Underlyings</option>
+      </select>
+      <select class="su-filter-select" id="su-f-behavior" onchange="applyFilters()">
+        <option value="">All Behaviors</option>
+      </select>
+      <button class="su-clear-btn" onclick="clearFilters()">✕ Clear</button>
+    </div>
+
+    <div class="su-showing">
+      <span id="su-showing-count">Showing 0 strategies</span>
+    </div>
+
+    <div class="su-list" id="su-strategy-list"></div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="su-right" id="su-right-panel">
+    <div class="su-empty-right" id="su-empty-state">
+      <div class="su-empty-icon">◈</div>
+      <div class="su-empty-txt">Select a strategy to view details</div>
+    </div>
+
+    <!-- Detail panel (hidden until strategy selected) -->
+    <div id="su-detail" style="display:none">
+      <div class="su-detail-header">
+        <div>
+          <div class="su-detail-name" id="su-det-name"></div>
+          <div class="su-detail-tags" id="su-det-tags"></div>
+        </div>
+        <button class="su-close-btn" onclick="closeDetail()">✕</button>
+      </div>
+
+      <div class="su-detail-body">
+        <!-- Key Stats -->
+        <div class="su-section-title">Key Statistics</div>
+        <div class="su-stats-grid" id="su-key-stats"></div>
+
+        <!-- Equity + Drawdown Charts -->
+        <div class="su-chart-card">
+          <div class="su-chart-header">
+            <span class="su-section-title" style="margin:0">Equity Curve</span>
+            <div class="su-tf-btns">
+              <button class="su-tf-btn" data-sp="1m">1M</button>
+              <button class="su-tf-btn" data-sp="3m">3M</button>
+              <button class="su-tf-btn" data-sp="6m">6M</button>
+              <button class="su-tf-btn active" data-sp="all">All</button>
+            </div>
+          </div>
+          <div class="su-chart-sublabel">Equity</div>
+          <div style="height:150px;position:relative"><canvas id="su-eq-chart"></canvas></div>
+          <div class="su-chart-sublabel" style="margin-top:10px">Drawdown</div>
+          <div style="height:80px;position:relative"><canvas id="su-dd-chart"></canvas></div>
+        </div>
+
+        <!-- Weekday Performance -->
+        <div class="su-section-title">Weekday Performance</div>
+        <div style="overflow-x:auto">
+          <table class="su-table" id="su-weekday-table"></table>
+        </div>
+
+        <!-- Monthly Performance -->
+        <div class="su-section-title">Monthly Performance</div>
+        <div style="overflow-x:auto">
+          <table class="su-table" id="su-monthly-table"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /strategy-universe -->
+
+
+<!-- ══════════════════════════════════════
+     PAGE: CAPITAL LADDER
+══════════════════════════════════════ -->
+<div id="page-capital-ladder" class="page">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span class="page-title">Capital Ladder</span>
+      <div class="strategy-sel-wrap">
+        <span>Strategy:</span>
+        <select id="cl-strategy-selector" onchange="PRIMARY=this.value;renderCapitalLadder()"></select>
+      </div>
+    </div>
+    <div class="header-right">
+      <span style="font-size:11px;color:var(--muted)">Capital doubles every 100% ROI milestone</span>
+      <button class="btn-refresh" onclick="loadData()">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="cl-kpi-row" id="cl-kpi-row"></div>
+
+  <!-- Progress to next milestone -->
+  <div class="cl-progress-card" id="cl-progress-card"></div>
+
+  <!-- Main Chart + Phase Summary -->
+  <div class="cl-grid-3">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header">
+        <span class="card-title">Portfolio Growth — Capital Ladder</span>
+        <div class="time-filters">
+          <button class="tf" data-p="1m">1M</button>
+          <button class="tf" data-p="3m">3M</button>
+          <button class="tf" data-p="6m">6M</button>
+          <button class="tf active" data-p="all">All</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap h240"><canvas id="cl-equity-chart"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header"><span class="card-title">Phase Breakdown</span></div>
+      <div class="card-body" id="cl-phase-breakdown" style="padding:10px"></div>
+    </div>
+  </div>
+
+  <!-- Milestone History Table -->
+  <div class="card" style="margin-top:14px">
+    <div class="card-header">
+      <span class="card-title">Milestone History</span>
+      <span style="font-size:11px;color:var(--muted)">Each row = one capital doubling event</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="cl-milestone-table" id="cl-milestone-table"></table>
+    </div>
+  </div>
+</div><!-- /capital-ladder -->
+
+
+<!-- ══════════════════════════════════════
+     PAGE: STAIRCASE
+══════════════════════════════════════ -->
+<div id="page-staircase" class="page">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <span class="page-title">Staircase Compounding</span>
+      <div class="strategy-sel-wrap">
+        <span>Strategy:</span>
+        <select id="sc-strategy-selector" onchange="PRIMARY=this.value;renderStaircase()"></select>
+      </div>
+    </div>
+    <div class="header-right" style="flex-wrap:wrap;gap:8px">
+      <div class="strategy-sel-wrap" style="gap:6px">
+        <span>Start ₹</span>
+        <input id="sc-capital-input" type="number" value="100000" step="50000" min="1000"
+          style="width:110px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:12px;font-family:inherit;outline:none">
+      </div>
+      <div class="strategy-sel-wrap" style="gap:6px">
+        <span>Step ₹</span>
+        <input id="sc-step-input" type="number" value="100000" step="50000" min="1000"
+          style="width:110px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:12px;font-family:inherit;outline:none">
+      </div>
+      <button class="ai-btn" style="width:auto;padding:6px 14px;font-size:12px" onclick="applyStaircaseParams()">⚡ Apply</button>
+      <button class="btn-refresh" onclick="loadData()">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="cl-kpi-row" id="sc-kpi-row"></div>
+
+  <!-- Progress to next milestone -->
+  <div class="cl-progress-card" id="sc-progress-card"></div>
+
+  <!-- Main Chart + Phase Summary -->
+  <div class="cl-grid-3">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header">
+        <span class="card-title">Portfolio Growth — Staircase Ladder</span>
+        <div class="time-filters">
+          <button class="tf" data-p="1m">1M</button>
+          <button class="tf" data-p="3m">3M</button>
+          <button class="tf" data-p="6m">6M</button>
+          <button class="tf active" data-p="all">All</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap h240"><canvas id="sc-equity-chart"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header"><span class="card-title">Phase Breakdown</span></div>
+      <div class="card-body" id="sc-phase-breakdown" style="padding:10px"></div>
+    </div>
+  </div>
+
+  <!-- Milestone History Table -->
+  <div class="card" style="margin-top:14px">
+    <div class="card-header">
+      <span class="card-title">Milestone History</span>
+      <span style="font-size:11px;color:var(--muted)">Each row = ₹1L profit earned → base grows by ₹1L</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="cl-milestone-table" id="sc-milestone-table"></table>
+    </div>
+  </div>
+</div><!-- /staircase -->
+
+
+<!-- ══════════════════════════════════════
+     PAGE: MARKET REGIME
+══════════════════════════════════════ -->
+<div id="page-market-regime" class="page">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span class="page-title">Market Regime</span>
+      <div class="strategy-sel-wrap">
+        <span>Strategy:</span>
+        <select onchange="PRIMARY=this.value;renderMarketRegime()">
+        </select>
+      </div>
+    </div>
+    <button class="btn-refresh" onclick="loadData()">⟳ Refresh</button>
+  </div>
+
+  <div class="grid-2">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header"><span class="card-title">Avg Monthly Return by Regime</span></div>
+      <div class="card-body">
+        <div class="chart-wrap h200"><canvas id="regime-bar-chart"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header"><span class="card-title">Regime Performance Stats</span></div>
+      <div style="overflow-x:auto;padding:4px">
+        <table class="data-table" id="regime-stats-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="card-header"><span class="card-title">Month-wise PnL (%)</span></div>
+    <div class="card-body">
+      <div class="chart-wrap h200"><canvas id="monthly-bar-chart"></canvas></div>
+    </div>
+  </div>
+</div><!-- /market-regime -->
+
+</div><!-- /main -->
+</div><!-- /app -->
+
+<script src="/static/app.js"></script>
+<script>
+  // Sync market regime strategy selector
+  document.addEventListener('DOMContentLoaded', () => {
+    const orig = document.getElementById('strategy-selector')
+    const mrSel = document.querySelector('#page-market-regime select')
+    if (orig && mrSel) {
+      orig.addEventListener('change', () => {
+        mrSel.innerHTML = orig.innerHTML
+        mrSel.value = orig.value
+      })
+    }
+  })
+</script>
+</body>
+</html>
