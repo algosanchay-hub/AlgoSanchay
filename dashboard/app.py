@@ -431,6 +431,64 @@ def api_upload():
     f.save(os.path.join(DATA_DIR, f.filename))
     return jsonify({'ok': True, 'file': f.filename})
 
+@app.route('/algodashboard/api/daily')
+def api_daily():
+    capital = int(request.args.get('capital', CAPITAL_DEFAULT))
+    strats  = load_strategies(DATA_DIR)
+    if not strats:
+        return jsonify({'names': [], 'history': [], 'latest_date': None})
+
+    names = sorted(strats.keys())
+
+    # Build date × strategy matrix
+    date_map = {}
+    for name, df in strats.items():
+        for _, row in df.iterrows():
+            d = row['date'].strftime('%Y-%m-%d')
+            if d not in date_map:
+                date_map[d] = {}
+            date_map[d][name] = float(row['pnl_pct'])
+
+    if not date_map:
+        return jsonify({'names': names, 'history': [], 'latest_date': None})
+
+    all_dates = sorted(date_map.keys())
+    latest_date = all_dates[-1]
+
+    # Build history rows with running cumulative
+    cum_portfolio = 0.0
+    history = []
+    for d in all_dates:
+        row_strats  = date_map[d]
+        strat_data  = {}
+        port_inr    = 0.0
+        active      = 0
+
+        for name in names:
+            if name in row_strats:
+                pct = row_strats[name]
+                inr = pct / 100.0 * capital
+                strat_data[name] = {'pct': round(pct, 2), 'inr': round(inr, 0)}
+                port_inr  += inr
+                active    += 1
+
+        cum_portfolio += port_inr
+        avg_pct = round(port_inr / (capital * active) * 100, 2) if active else 0
+
+        history.append({
+            'd':            d,
+            'strategies':   strat_data,
+            'portfolio_inr': round(port_inr, 0),
+            'portfolio_pct': avg_pct,
+            'cumulative':    round(capital + cum_portfolio, 0),
+            'active':        active,
+        })
+
+    history.reverse()   # latest first
+    return jsonify({'names': names, 'latest_date': latest_date,
+                    'history': history, 'capital': capital})
+
+
 @app.route('/algodashboard/api/links', methods=['GET'])
 def api_get_links():
     return jsonify(load_links())
