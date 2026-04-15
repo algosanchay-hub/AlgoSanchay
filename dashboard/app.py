@@ -13,6 +13,19 @@ CAPITAL_DEFAULT = 100_000
 SKIP_COLS = {'s.no.', 's.no', 'sno', '#', 'index', 'no', 'sr', 'sr.no', 'sr.no.'}
 WEEKDAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 
+# ── Tradetron Links ────────────────────────
+LINKS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'tradetron_links.json')
+
+def load_links():
+    if os.path.exists(LINKS_PATH):
+        with open(LINKS_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return []
+
+def save_links(links):
+    with open(LINKS_PATH, 'w', encoding='utf-8') as f:
+        json.dump(links, f, indent=2, ensure_ascii=False)
+
 # ── Metadata ──────────────────────────────
 META_PATH = os.path.join(DATA_DIR, 'metadata.json')
 
@@ -417,6 +430,35 @@ def api_upload():
         return jsonify({'error': 'Send an .xlsx file'}), 400
     f.save(os.path.join(DATA_DIR, f.filename))
     return jsonify({'ok': True, 'file': f.filename})
+
+@app.route('/algodashboard/api/links', methods=['GET'])
+def api_get_links():
+    return jsonify(load_links())
+
+@app.route('/algodashboard/api/links', methods=['POST'])
+def api_save_link():
+    import uuid, datetime
+    body = request.get_json()
+    links = load_links()
+    if body.get('id'):
+        # Edit existing
+        for i, l in enumerate(links):
+            if l['id'] == body['id']:
+                links[i] = {**l, **body}
+                break
+    else:
+        # Add new
+        body['id']         = str(uuid.uuid4())[:8]
+        body['created_at'] = datetime.datetime.now().strftime('%d %b %Y')
+        links.append(body)
+    save_links(links)
+    return jsonify({'ok': True, 'links': links})
+
+@app.route('/algodashboard/api/links/<link_id>', methods=['DELETE'])
+def api_delete_link(link_id):
+    links = [l for l in load_links() if l['id'] != link_id]
+    save_links(links)
+    return jsonify({'ok': True, 'links': links})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
