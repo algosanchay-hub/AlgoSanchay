@@ -68,6 +68,12 @@
     <a class="nav-item" data-page="staircase" href="#">
       <span class="nav-icon">↗</span> Staircase
     </a>
+    <a class="nav-item" data-page="daily-pnl" href="#">
+      <span class="nav-icon">📅</span> Daily P&amp;L
+    </a>
+    <a class="nav-item" data-page="tradetron" href="#">
+      <span class="nav-icon">⚡</span> Tradetron
+    </a>
     <a class="nav-item" data-page="market-regime" href="#">
       <span class="nav-icon">∿</span> Market Regime
     </a>
@@ -460,6 +466,169 @@
     </div>
   </div>
 </div><!-- /staircase -->
+
+
+<!-- ══════════════════════════════════════
+     PAGE: DAILY P&L
+══════════════════════════════════════ -->
+<div id="page-daily-pnl" class="page">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span class="page-title">Daily P&amp;L</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="dp-nav-btn" onclick="dpChangeDate(-1)">◀</button>
+        <input type="date" id="dp-date-input" onchange="dpSelectDate(this.value)"
+          style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:12px;font-family:inherit;outline:none">
+        <button class="dp-nav-btn" onclick="dpChangeDate(1)">▶</button>
+        <button class="dp-today-btn" onclick="dpGoToday()">Today</button>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="btn-refresh" onclick="renderDailyPnl()">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <!-- KPI Row -->
+  <div class="kpi-row" id="dp-kpi-row" style="grid-template-columns:repeat(5,1fr)"></div>
+
+  <!-- Strategy Cards -->
+  <div id="dp-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:14px"></div>
+
+  <!-- Cumulative Chart -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Cumulative Portfolio Value</span>
+      <div class="time-filters">
+        <button class="tf dp-tf active" data-dp="30">1M</button>
+        <button class="tf dp-tf" data-dp="90">3M</button>
+        <button class="tf dp-tf" data-dp="180">6M</button>
+        <button class="tf dp-tf" data-dp="0">All</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap h200"><canvas id="dp-cum-chart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- History Table -->
+  <div class="card" style="margin-top:12px">
+    <div class="card-header">
+      <span class="card-title">Daily History</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:11px;color:var(--muted)">Click any row to view that day</span>
+        <select id="dp-rows-select" onchange="renderDPHistory()"
+          style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px;font-family:inherit;outline:none">
+          <option value="30">Last 30 days</option>
+          <option value="60">Last 60 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="0">All data</option>
+        </select>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="data-table" id="dp-history-table" style="min-width:600px"></table>
+    </div>
+  </div>
+</div><!-- /daily-pnl -->
+
+
+<!-- ══════════════════════════════════════
+     PAGE: TRADETRON
+══════════════════════════════════════ -->
+<div id="page-tradetron" class="page">
+  <div class="page-header">
+    <span class="page-title">Tradetron Strategies</span>
+    <div class="header-right">
+      <button class="ai-btn" style="width:auto;padding:7px 16px" onclick="openLinkModal()">+ Add Strategy Link</button>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div id="tt-stats" style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap"></div>
+
+  <!-- Cards Grid -->
+  <div id="tt-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px"></div>
+
+  <!-- Empty state -->
+  <div id="tt-empty" style="display:none;text-align:center;padding:60px 20px;color:var(--muted)">
+    <div style="font-size:40px;margin-bottom:12px">⚡</div>
+    <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">No strategies added yet</div>
+    <div style="font-size:12px;margin-bottom:16px">Add your Tradetron strategy links to track them here</div>
+    <button class="ai-btn" style="width:auto;padding:8px 20px" onclick="openLinkModal()">+ Add First Strategy</button>
+  </div>
+</div><!-- /tradetron -->
+
+<!-- ── Tradetron Add/Edit Modal ──────────── -->
+<div class="modal-overlay" id="tt-modal">
+  <div class="modal" style="max-width:480px">
+    <h3 id="tt-modal-title">Add Strategy Link</h3>
+    <input type="hidden" id="tt-edit-id">
+
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:4px">
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">STRATEGY NAME *</label>
+        <input id="tt-name" type="text" placeholder="e.g. Nifty Straddle Weekly"
+          style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">TRADETRON LINK *</label>
+        <input id="tt-url" type="url" placeholder="https://tradetron.tech/strategy/..."
+          style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">UNDERLYING</label>
+          <select id="tt-underlying" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:inherit;outline:none">
+            <option value="">Select</option>
+            <option>Nifty</option>
+            <option>BankNifty</option>
+            <option>FinNifty</option>
+            <option>Sensex</option>
+            <option>MidcapNifty</option>
+            <option>Stock</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">TYPE</label>
+          <select id="tt-type" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:inherit;outline:none">
+            <option value="">Select</option>
+            <option>Selling</option>
+            <option>Buying</option>
+            <option>Directional</option>
+            <option>Non-directional</option>
+            <option>Hedged</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">CAPITAL (₹)</label>
+          <input id="tt-capital" type="number" placeholder="100000" step="10000"
+            style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">STATUS</label>
+          <select id="tt-status" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:inherit;outline:none">
+            <option value="live">🟢 Live</option>
+            <option value="paused">🟡 Paused</option>
+            <option value="testing">🔵 Testing</option>
+            <option value="stopped">🔴 Stopped</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px">NOTES (optional)</label>
+        <textarea id="tt-notes" rows="2" placeholder="Any notes about this strategy..."
+          style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:inherit;outline:none;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn-cancel" onclick="closeLinkModal()">Cancel</button>
+      <button class="ai-btn" style="width:auto;padding:7px 20px" onclick="saveLink()">Save Strategy</button>
+    </div>
+  </div>
+</div>
 
 
 <!-- ══════════════════════════════════════

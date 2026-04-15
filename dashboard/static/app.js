@@ -61,6 +61,8 @@ function renderPage(page) {
   else if (page === 'strategy-universe') renderUniverse()
   else if (page === 'capital-ladder') renderCapitalLadder()
   else if (page === 'staircase') renderStaircase()
+  else if (page === 'daily-pnl') renderDailyPnl()
+  else if (page === 'tradetron') renderTradetron()
   else if (page === 'market-regime') renderMarketRegime()
 }
 
@@ -1107,6 +1109,336 @@ async function doUpload() {
   const data = await r.json()
   if (data.ok) { closeUpload(); loadData() }
   else alert(data.error || 'Upload failed')
+}
+
+/* ── DAILY P&L PAGE ──────────────────────── */
+let DP_DATA   = {}
+let DP_DATE   = null
+let DP_DAYS   = 30
+
+async function renderDailyPnl() {
+  const res = await fetch(`/algodashboard/api/daily?capital=${CAPITAL}`)
+  DP_DATA = await res.json()
+  if (!DP_DATA.latest_date) { document.getElementById('dp-kpi-row').innerHTML = '<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--muted)">No data found — upload strategy Excel files first.</div>'; return }
+  DP_DATE = DP_DATE && DP_DATA.history.find(h => h.d === DP_DATE) ? DP_DATE : DP_DATA.latest_date
+  const inp = document.getElementById('dp-date-input')
+  if (inp) inp.value = DP_DATE
+  renderDPView()
+}
+
+function renderDPView() {
+  const row = DP_DATA.history?.find(h => h.d === DP_DATE) || DP_DATA.history?.[0]
+  if (!row) return
+  renderDPKPIs(row)
+  renderDPStrategyCards(row)
+  renderDPCumChart()
+  renderDPHistory()
+}
+
+/* KPI Row */
+function renderDPKPIs(row) {
+  const names    = DP_DATA.names || []
+  const strats   = row.strategies || {}
+  const vals     = names.map(n => strats[n]?.pct).filter(v => v != null)
+  const best     = vals.length ? Math.max(...vals) : null
+  const worst    = vals.length ? Math.min(...vals) : null
+  const bestName = names.find(n => strats[n]?.pct === best)
+  const date     = new Date(row.d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })
+
+  const kpis = [
+    { label:'DATE',              main: date,                                              mainCls: '', sub: `${row.active} strategies active` },
+    { label:'PORTFOLIO % TODAY', main: (row.portfolio_pct >= 0 ? '+' : '') + row.portfolio_pct.toFixed(2) + '%', mainCls: row.portfolio_pct >= 0 ? 'green' : 'red', sub: 'Avg across strategies' },
+    { label:'PORTFOLIO ₹ TODAY', main: fmtINRSigned(row.portfolio_inr),                  mainCls: row.portfolio_inr >= 0 ? 'green' : 'red', sub: `Capital: ${fmtINR(DP_DATA.capital)}` },
+    { label:'BEST STRATEGY',     main: best != null ? (best >= 0 ? '+' : '') + best.toFixed(2) + '%' : '—', mainCls: 'green', sub: bestName ? bestName.slice(0,20) : '—' },
+    { label:'CUMULATIVE VALUE',  main: fmtINR(row.cumulative),                            mainCls: 'orange', sub: `From ₹${(DP_DATA.capital/100000).toFixed(1)}L start` },
+  ]
+  const el = document.getElementById('dp-kpi-row')
+  el.innerHTML = kpis.map(k => `
+    <div class="kpi-card">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-main ${k.mainCls}">${k.main}</div>
+      ${k.sub ? `<div class="kpi-sub">${k.sub}</div>` : ''}
+    </div>`).join('')
+}
+
+/* Strategy Cards */
+function renderDPStrategyCards(row) {
+  const names  = DP_DATA.names || []
+  const strats = row.strategies || {}
+  const el     = document.getElementById('dp-cards')
+  if (!names.length) { el.innerHTML = ''; return }
+
+  el.innerHTML = names.map(name => {
+    const d   = strats[name]
+    if (!d) return `
+      <div class="dp-strat-card dp-no-data">
+        <div class="dp-strat-name">${name}</div>
+        <div class="dp-strat-pct" style="color:var(--muted)">—</div>
+        <div class="dp-strat-sub">No data this day</div>
+      </div>`
+    const pos = d.pct >= 0
+    return `
+      <div class="dp-strat-card ${pos ? 'dp-pos' : 'dp-neg'}">
+        <div class="dp-strat-name" title="${name}">${name.length > 22 ? name.slice(0,22)+'…' : name}</div>
+        <div class="dp-strat-pct ${pos ? 'green' : 'red'}">${pos ? '+' : ''}${d.pct.toFixed(2)}%</div>
+        <div class="dp-strat-inr">${fmtINRSigned(d.inr)}</div>
+        <div class="dp-strat-bar">
+          <div class="dp-strat-bar-fill" style="width:${Math.min(Math.abs(d.pct)*10,100)}%;background:${pos ? '#10b981' : '#ef4444'}"></div>
+        </div>
+      </div>`
+  }).join('')
+}
+
+/* Cumulative Chart */
+function renderDPCumChart() {
+  destroyChart('dp-cum')
+  const history = DP_DATA.history || []
+  const days    = parseInt(document.querySelector('.dp-tf.active')?.dataset.dp || '30')
+  const raw     = days > 0 ? history.slice(0, days) : history
+  const sorted  = [...raw].reverse()
+
+  const ctx = document.getElementById('dp-cum-chart')?.getContext('2d')
+  if (!ctx) return
+
+  charts['dp-cum'] = new Chart(ctx, {
+    type: 'line',
+    data: { datasets: [
+      { label: 'Portfolio Value',
+        data: sorted.map(h => ({ x: h.d, y: h.cumulative })),
+        borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.07)',
+        fill: true, borderWidth: 2, pointRadius: 0, tension: 0.1 },
+      { label: 'Base Capital',
+        data: sorted.map(h => ({ x: h.d, y: DP_DATA.capital })),
+        borderColor: '#94a3b8', borderDash: [5,3], borderWidth: 1.5,
+        pointRadius: 0, fill: false },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top', labels: { font: { size: 11 }, boxWidth: 10 } },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmtINR(c.parsed.y)}` }}
+      },
+      scales: {
+        x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'MMM yy' } },
+             grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+        y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 },
+             callback: v => v >= 100000 ? '₹'+(v/100000).toFixed(1)+'L' : '₹'+(v/1000).toFixed(0)+'K' }}
+      }
+    }
+  })
+}
+
+/* History Table */
+function renderDPHistory() {
+  const names   = DP_DATA.names || []
+  const history = DP_DATA.history || []
+  const rows    = parseInt(document.getElementById('dp-rows-select')?.value || '30')
+  const slice   = rows > 0 ? history.slice(0, rows) : history
+
+  const thead = `<thead><tr>
+    <th>DATE</th>
+    ${names.map(n => `<th class="num" title="${n}">${n.length > 14 ? n.slice(0,14)+'…' : n}</th>`).join('')}
+    <th class="num">PORTFOLIO %</th>
+    <th class="num">PORTFOLIO ₹</th>
+    <th class="num">CUMULATIVE</th>
+  </tr></thead>`
+
+  const tbody = slice.map(h => {
+    const isSelected = h.d === DP_DATE
+    const strats = h.strategies || {}
+    const cells  = names.map(n => {
+      const d = strats[n]
+      if (!d) return `<td class="num" style="color:var(--muted)">—</td>`
+      const cls = d.pct >= 0 ? 'green' : 'red'
+      return `<td class="num ${cls}">${d.pct >= 0 ? '+' : ''}${d.pct.toFixed(2)}%</td>`
+    }).join('')
+
+    const ppCls = h.portfolio_pct >= 0 ? 'green' : 'red'
+    const piCls = h.portfolio_inr >= 0 ? 'green' : 'red'
+    const display = new Date(h.d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })
+
+    return `<tr class="${isSelected ? 'dp-selected-row' : ''}" onclick="dpSelectDate('${h.d}')" style="cursor:pointer">
+      <td style="font-weight:${isSelected ? '700' : '500'};color:${isSelected ? 'var(--green)' : 'var(--text)'}">${display}</td>
+      ${cells}
+      <td class="num ${ppCls}" style="font-weight:600">${h.portfolio_pct >= 0 ? '+' : ''}${h.portfolio_pct.toFixed(2)}%</td>
+      <td class="num ${piCls}">${fmtINRSigned(h.portfolio_inr)}</td>
+      <td class="num orange" style="font-weight:600">${fmtINR(h.cumulative)}</td>
+    </tr>`
+  }).join('')
+
+  document.getElementById('dp-history-table').innerHTML = thead + `<tbody>${tbody}</tbody>`
+}
+
+/* Date Navigation */
+function dpSelectDate(dateStr) {
+  DP_DATE = dateStr
+  const inp = document.getElementById('dp-date-input')
+  if (inp) inp.value = dateStr
+  const row = DP_DATA.history?.find(h => h.d === dateStr)
+  if (row) {
+    renderDPKPIs(row)
+    renderDPStrategyCards(row)
+  }
+  renderDPHistory()
+}
+
+function dpChangeDate(dir) {
+  const history = DP_DATA.history || []
+  const idx     = history.findIndex(h => h.d === DP_DATE)
+  const newIdx  = idx + dir   // +1 = older, -1 = newer (history is latest-first)
+  if (newIdx >= 0 && newIdx < history.length) dpSelectDate(history[newIdx].d)
+}
+
+function dpGoToday() {
+  if (DP_DATA.latest_date) dpSelectDate(DP_DATA.latest_date)
+}
+
+// DP time filter buttons
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('dp-tf')) {
+    document.querySelectorAll('.dp-tf').forEach(b => b.classList.remove('active'))
+    e.target.classList.add('active')
+    renderDPCumChart()
+  }
+})
+
+/* ── TRADETRON PAGE ──────────────────────── */
+let TT_LINKS = []
+
+const STATUS_MAP = {
+  live:    { label: '🟢 Live',    cls: 'tt-live'    },
+  paused:  { label: '🟡 Paused',  cls: 'tt-paused'  },
+  testing: { label: '🔵 Testing', cls: 'tt-testing' },
+  stopped: { label: '🔴 Stopped', cls: 'tt-stopped' },
+}
+
+async function renderTradetron() {
+  const res = await fetch('/algodashboard/api/links')
+  TT_LINKS  = await res.json()
+  renderTTCards()
+}
+
+function renderTTCards() {
+  const cards   = document.getElementById('tt-cards')
+  const empty   = document.getElementById('tt-empty')
+  const stats   = document.getElementById('tt-stats')
+
+  if (!TT_LINKS.length) {
+    cards.innerHTML = ''; empty.style.display = 'block'; stats.innerHTML = ''; return
+  }
+  empty.style.display = 'none'
+
+  // Stats bar
+  const total   = TT_LINKS.length
+  const live    = TT_LINKS.filter(l => l.status === 'live').length
+  const paused  = TT_LINKS.filter(l => l.status === 'paused').length
+  const testing = TT_LINKS.filter(l => l.status === 'testing').length
+  stats.innerHTML = [
+    { label: 'Total Strategies', val: total,   color: '#3b82f6' },
+    { label: 'Live',             val: live,    color: '#10b981' },
+    { label: 'Paused',           val: paused,  color: '#f59e0b' },
+    { label: 'Testing',          val: testing, color: '#06b6d4' },
+  ].map(s => `
+    <div class="cl-kpi" style="border-top:3px solid ${s.color};min-width:120px;flex:1;max-width:180px">
+      <div class="cl-kpi-label">${s.label}</div>
+      <div class="cl-kpi-val" style="color:${s.color}">${s.val}</div>
+    </div>`).join('')
+
+  // Cards
+  cards.innerHTML = TT_LINKS.map(l => {
+    const st  = STATUS_MAP[l.status] || STATUS_MAP.live
+    const cap = l.capital ? '₹' + Number(l.capital).toLocaleString('en-IN') : '—'
+    const tags = [l.underlying, l.type].filter(Boolean)
+    return `
+    <div class="tt-card">
+      <div class="tt-card-top">
+        <div>
+          <div class="tt-card-name">${l.name}</div>
+          <div class="tt-card-tags">${tags.map(t => `<span class="su-tag su-tag-gray">${t}</span>`).join('')}</div>
+        </div>
+        <span class="tt-status ${st.cls}">${st.label}</span>
+      </div>
+      ${l.notes ? `<div class="tt-card-notes">${l.notes}</div>` : ''}
+      <div class="tt-card-meta">
+        <span>Capital: <strong>${cap}</strong></span>
+        <span style="color:var(--muted);font-size:10px">Added ${l.created_at || ''}</span>
+      </div>
+      <div class="tt-card-actions">
+        <a href="${l.url}" target="_blank" rel="noopener noreferrer" class="tt-btn-open">
+          ⚡ Open on Tradetron ↗
+        </a>
+        <div style="display:flex;gap:6px">
+          <button class="tt-btn-edit" onclick="editLink('${l.id}')">✏️ Edit</button>
+          <button class="tt-btn-del"  onclick="deleteLink('${l.id}')">🗑</button>
+        </div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+function openLinkModal(id) {
+  document.getElementById('tt-edit-id').value  = ''
+  document.getElementById('tt-name').value      = ''
+  document.getElementById('tt-url').value       = ''
+  document.getElementById('tt-underlying').value= ''
+  document.getElementById('tt-type').value      = ''
+  document.getElementById('tt-capital').value   = ''
+  document.getElementById('tt-status').value    = 'live'
+  document.getElementById('tt-notes').value     = ''
+  document.getElementById('tt-modal-title').textContent = 'Add Strategy Link'
+  document.getElementById('tt-modal').classList.add('open')
+}
+
+function editLink(id) {
+  const l = TT_LINKS.find(x => x.id === id); if (!l) return
+  document.getElementById('tt-edit-id').value   = l.id
+  document.getElementById('tt-name').value       = l.name      || ''
+  document.getElementById('tt-url').value        = l.url       || ''
+  document.getElementById('tt-underlying').value = l.underlying|| ''
+  document.getElementById('tt-type').value       = l.type      || ''
+  document.getElementById('tt-capital').value    = l.capital   || ''
+  document.getElementById('tt-status').value     = l.status    || 'live'
+  document.getElementById('tt-notes').value      = l.notes     || ''
+  document.getElementById('tt-modal-title').textContent = 'Edit Strategy Link'
+  document.getElementById('tt-modal').classList.add('open')
+}
+
+function closeLinkModal() {
+  document.getElementById('tt-modal').classList.remove('open')
+}
+
+async function saveLink() {
+  const name = document.getElementById('tt-name').value.trim()
+  const url  = document.getElementById('tt-url').value.trim()
+  if (!name) { alert('Please enter a strategy name'); return }
+  if (!url)  { alert('Please enter a Tradetron link'); return }
+
+  const body = {
+    id:         document.getElementById('tt-edit-id').value || null,
+    name,
+    url,
+    underlying: document.getElementById('tt-underlying').value,
+    type:       document.getElementById('tt-type').value,
+    capital:    document.getElementById('tt-capital').value,
+    status:     document.getElementById('tt-status').value,
+    notes:      document.getElementById('tt-notes').value.trim(),
+  }
+  if (!body.id) delete body.id
+
+  const res = await fetch('/algodashboard/api/links', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  const data = await res.json()
+  if (data.ok) { TT_LINKS = data.links; closeLinkModal(); renderTTCards() }
+}
+
+async function deleteLink(id) {
+  if (!confirm('Delete this strategy link?')) return
+  const res  = await fetch(`/algodashboard/api/links/${id}`, { method: 'DELETE' })
+  const data = await res.json()
+  if (data.ok) { TT_LINKS = data.links; renderTTCards() }
 }
 
 /* ── LOADING / EMPTY ─────────────────────── */

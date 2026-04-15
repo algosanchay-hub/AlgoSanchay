@@ -428,6 +428,90 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 .btn-cancel { padding: 7px 14px; border: 1px solid var(--border); border-radius: 6px; background: none; cursor: pointer; font-size: 12px; }
 .btn-cancel:hover { border-color: var(--red); color: var(--red); }
 
+/* ── DAILY P&L PAGE ──────────────────────── */
+.dp-nav-btn {
+  padding: 4px 10px; border: 1px solid var(--border); border-radius: 5px;
+  background: var(--card); cursor: pointer; font-size: 12px;
+  color: var(--text); transition: all 0.15s;
+}
+.dp-nav-btn:hover { border-color: #10b981; color: #10b981; }
+.dp-today-btn {
+  padding: 4px 12px; border: 1px solid #10b981; border-radius: 5px;
+  background: rgba(16,185,129,0.08); color: #10b981;
+  cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.15s;
+}
+.dp-today-btn:hover { background: #10b981; color: #fff; }
+
+.dp-strat-card {
+  background: var(--card); border-radius: 8px; padding: 14px;
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.dp-strat-card.dp-pos { border-top: 3px solid #10b981; }
+.dp-strat-card.dp-neg { border-top: 3px solid #ef4444; }
+.dp-strat-card.dp-no-data { border-top: 3px solid #94a3b8; opacity: 0.6; }
+.dp-strat-name { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.dp-strat-pct  { font-size: 22px; font-weight: 800; }
+.dp-strat-inr  { font-size: 12px; color: var(--muted); }
+.dp-strat-sub  { font-size: 11px; color: var(--muted); }
+.dp-strat-bar  { height: 3px; background: var(--border); border-radius: 2px; margin-top: 2px; }
+.dp-strat-bar-fill { height: 3px; border-radius: 2px; transition: width 0.4s; }
+
+.dp-selected-row { background: rgba(16,185,129,0.05) !important; }
+.dp-selected-row td { border-bottom: 2px solid rgba(16,185,129,0.3) !important; }
+
+/* ── TRADETRON CARDS ─────────────────────── */
+.tt-card {
+  background: var(--card);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.tt-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.1); transform: translateY(-1px); }
+.tt-card-top   { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.tt-card-name  { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+.tt-card-tags  { display: flex; gap: 4px; flex-wrap: wrap; }
+.tt-card-notes { font-size: 12px; color: var(--muted); line-height: 1.5; background: var(--bg); padding: 8px 10px; border-radius: 6px; }
+.tt-card-meta  { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); }
+.tt-card-meta strong { color: var(--text); }
+.tt-card-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 2px; }
+
+.tt-btn-open {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #10b981; color: #fff;
+  padding: 7px 14px; border-radius: 6px;
+  font-size: 12px; font-weight: 600;
+  text-decoration: none; transition: background 0.15s;
+  border: none; cursor: pointer;
+}
+.tt-btn-open:hover { background: #059669; }
+.tt-btn-edit {
+  padding: 6px 10px; border: 1px solid var(--border);
+  border-radius: 6px; background: none; cursor: pointer;
+  font-size: 11px; color: var(--muted); transition: all 0.15s;
+}
+.tt-btn-edit:hover { border-color: #3b82f6; color: #3b82f6; }
+.tt-btn-del {
+  padding: 6px 10px; border: 1px solid var(--border);
+  border-radius: 6px; background: none; cursor: pointer;
+  font-size: 11px; transition: all 0.15s;
+}
+.tt-btn-del:hover { border-color: var(--red); color: var(--red); }
+
+.tt-status {
+  display: inline-block; padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 600; white-space: nowrap; flex-shrink: 0;
+}
+.tt-live    { background: rgba(16,185,129,0.12); color: #10b981; }
+.tt-paused  { background: rgba(245,158,11,0.12);  color: #f59e0b; }
+.tt-testing { background: rgba(6,182,212,0.12);   color: #06b6d4; }
+.tt-stopped { background: rgba(239,68,68,0.12);   color: #ef4444; }
+
 /* ── TOOLTIP ─────────────────────────────── */
 .tt { cursor: help; border-bottom: 1px dashed var(--muted); }
 
