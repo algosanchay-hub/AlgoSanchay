@@ -697,10 +697,18 @@ function selectAndView(name) {
 }
 
 /* ── CAPITAL LADDER PAGE ─────────────────── */
-let CL_DATA = {}
+let CL_DATA    = {}
+let CL_CAPITAL = 100000
+
+function applyCapitalLadderParams() {
+  const cap = parseInt(document.getElementById('cl-capital-input')?.value || CL_CAPITAL)
+  CL_CAPITAL = cap > 0 ? cap : CL_CAPITAL
+  CL_DATA = {}
+  renderCapitalLadder()
+}
 
 async function loadCapitalLadderData() {
-  const res = await fetch(`/algodashboard/api/compounding?capital=${CAPITAL}`)
+  const res = await fetch(`/algodashboard/api/compounding?capital=${CL_CAPITAL}`)
   CL_DATA = await res.json()
   const sel = document.getElementById('cl-strategy-selector')
   if (sel && Object.keys(CL_DATA).length) {
@@ -713,6 +721,10 @@ async function renderCapitalLadder() {
   await loadCapitalLadderData()
   const d = CL_DATA[PRIMARY] || CL_DATA[Object.keys(CL_DATA)[0]]
   if (!d) return
+
+  // Sync input to current value
+  const capIn = document.getElementById('cl-capital-input')
+  if (capIn) capIn.value = CL_CAPITAL
 
   const PHASE_COLORS = ['#10b981','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#ec4899']
 

@@ -345,16 +345,64 @@
 ══════════════════════════════════════ -->
 <div id="page-capital-ladder" class="page">
   <div class="page-header">
-    <div style="display:flex;align-items:center;gap:14px">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
       <span class="page-title">Capital Ladder</span>
       <div class="strategy-sel-wrap">
         <span>Strategy:</span>
         <select id="cl-strategy-selector" onchange="PRIMARY=this.value;renderCapitalLadder()"></select>
       </div>
     </div>
-    <div class="header-right">
-      <span style="font-size:11px;color:var(--muted)">Capital doubles every 100% ROI milestone</span>
+    <div class="header-right" style="flex-wrap:wrap;gap:8px">
+      <div class="strategy-sel-wrap" style="gap:6px">
+        <span>Initial ₹</span>
+        <input id="cl-capital-input" type="number" value="100000" step="50000" min="1000"
+          style="width:115px;padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:12px;font-family:inherit;outline:none">
+      </div>
+      <button class="ai-btn" style="width:auto;padding:6px 14px;font-size:12px" onclick="applyCapitalLadderParams()">⚡ Apply</button>
       <button class="btn-refresh" onclick="loadData()">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <!-- How it Works -->
+  <div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #bbf7d0">
+    <div class="card-header" style="cursor:pointer;background:transparent;border-bottom:none"
+         onclick="var b=document.getElementById('cl-info-body');var a=document.getElementById('cl-info-arrow');var open=b.style.display!=='none';b.style.display=open?'none':'block';a.textContent=open?'▼ How it works':'▲ collapse'">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:15px">📐</span>
+        <span class="card-title" style="color:#065f46">Capital Ladder — How It Works</span>
+      </div>
+      <span id="cl-info-arrow" style="font-size:11px;color:#10b981;white-space:nowrap">▼ How it works</span>
+    </div>
+    <div id="cl-info-body" style="display:none;padding:4px 16px 14px">
+      <p style="font-size:12.5px;color:#047857;margin:0 0 10px;line-height:1.6">
+        Capital Ladder uses <strong>Geometric (Exponential) Compounding</strong> — your capital <em>doubles</em> every time you earn 100% ROI on the current base. This is the most aggressive growth model.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:10px">
+        <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:#10b981;margin-bottom:4px">PHASE 1</div>
+          <div style="font-size:12px;color:#1e293b">Base: <strong>Initial ₹</strong></div>
+          <div style="font-size:12px;color:#1e293b">Target: Earn 100% → <strong>Base × 2</strong></div>
+        </div>
+        <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:#3b82f6;margin-bottom:4px">PHASE 2</div>
+          <div style="font-size:12px;color:#1e293b">Base: <strong>2× Initial</strong></div>
+          <div style="font-size:12px;color:#1e293b">Target: Earn 100% → <strong>4× Initial</strong></div>
+        </div>
+        <div style="background:#fff;border:1px solid #e9d5ff;border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:#8b5cf6;margin-bottom:4px">PHASE 3</div>
+          <div style="font-size:12px;color:#1e293b">Base: <strong>4× Initial</strong></div>
+          <div style="font-size:12px;color:#1e293b">Target: Earn 100% → <strong>8× Initial</strong></div>
+        </div>
+        <div style="background:#fff;border:1px solid #fed7aa;border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:#f59e0b;margin-bottom:4px">PHASE N</div>
+          <div style="font-size:12px;color:#1e293b">Base: <strong>2ⁿ⁻¹ × Initial</strong></div>
+          <div style="font-size:12px;color:#1e293b">Each phase: <strong>harder</strong> but worth more</div>
+        </div>
+      </div>
+      <div style="font-size:11.5px;color:#64748b;background:#f8fafc;border-radius:6px;padding:8px 12px;border-left:3px solid #10b981">
+        💡 <strong>Example with ₹1,00,000 initial:</strong> Phase 1 → ₹2L → Phase 2 → ₹4L → Phase 3 → ₹8L → Phase 4 → ₹16L …<br>
+        Target profit doubles each phase. Equity grows as 2ⁿ × initial capital. Change <strong>Initial ₹</strong> above and click ⚡ Apply to simulate different starting capitals.
+      </div>
     </div>
   </div>
 
@@ -424,6 +472,49 @@
       </div>
       <button class="ai-btn" style="width:auto;padding:6px 14px;font-size:12px" onclick="applyStaircaseParams()">⚡ Apply</button>
       <button class="btn-refresh" onclick="loadData()">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <!-- How it Works — Staircase -->
+  <div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe">
+    <div class="card-header" style="cursor:pointer;background:transparent;border-bottom:none"
+         onclick="var b=document.getElementById('sc-info-body');var a=document.getElementById('sc-info-arrow');var open=b.style.display!=='none';b.style.display=open?'none':'block';a.textContent=open?'▼ How it works':'▲ collapse'">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:15px">↗</span>
+        <span class="card-title" style="color:#1e40af">Staircase Compounding — How It Works</span>
+      </div>
+      <span id="sc-info-arrow" style="font-size:11px;color:#3b82f6;white-space:nowrap">▼ How it works</span>
+    </div>
+    <div id="sc-info-body" style="display:none;padding:4px 16px 14px">
+      <p style="font-size:12.5px;color:#1d4ed8;margin:0 0 10px;line-height:1.6">
+        Staircase uses <strong>Linear (Arithmetic) Compounding</strong> — every time you earn the fixed <em>Step</em> profit, your base capital grows by one step. The ROI% needed gets <strong>easier</strong> each phase as your capital grows.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:10px">
+        <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:#10b981;margin-bottom:4px">PHASE 1</div>
+          <div style="font-size:12px;color:#1e293b">Base: <strong>Start ₹</strong></div>
+          <div style="font-size:12px;color:#1e293b">Earn Step ₹ → Base becomes <strong>Start + Step</strong></div>
+        </div>
+        <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:#3b82f6;margin-bottom:4px">PHASE 2</div>
+          <div style="font-size:12px;color:#1e293b">Base: <strong>Start + Step</strong></div>
+          <div style="font-size:12px;color:#1e293b">Earn Step ₹ → Base becomes <strong>Start + 2×Step</strong></div>
+        </div>
+        <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:#8b5cf6;margin-bottom:4px">PHASE 3</div>
+          <div style="font-size:12px;color:#1e293b">Base: <strong>Start + 2×Step</strong></div>
+          <div style="font-size:12px;color:#1e293b">Earn Step ₹ → Base becomes <strong>Start + 3×Step</strong></div>
+        </div>
+        <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:#f59e0b;margin-bottom:4px">KEY INSIGHT</div>
+          <div style="font-size:12px;color:#1e293b">Same fixed target each phase</div>
+          <div style="font-size:12px;color:#10b981;font-weight:600">ROI% needed ↓ every phase</div>
+        </div>
+      </div>
+      <div style="font-size:11.5px;color:#64748b;background:#f8fafc;border-radius:6px;padding:8px 12px;border-left:3px solid #3b82f6">
+        💡 <strong>Example (Start ₹1L, Step ₹1L):</strong> Phase 1 needs <strong>100% ROI</strong> (₹1L on ₹1L base) → Phase 2 needs <strong>50% ROI</strong> (₹1L on ₹2L base) → Phase 3 needs <strong>33% ROI</strong> → gets progressively easier!<br>
+        More conservative than Capital Ladder. Set <strong>Start ₹</strong> and <strong>Step ₹</strong> above and click ⚡ Apply to simulate.
+      </div>
     </div>
   </div>
 
@@ -559,6 +650,11 @@
   <div class="page-header">
     <span class="page-title">Tradetron Strategies</span>
     <div class="header-right">
+      <a href="https://tradetron.tech/?ref=algosanchay" target="_blank" rel="noopener noreferrer"
+         style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:#f59e0b;color:#fff;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;transition:opacity 0.15s"
+         onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+        ⚡ Sign Up on Tradetron ↗
+      </a>
       <button class="ai-btn" style="width:auto;padding:7px 16px" onclick="openLinkModal()">+ Add Strategy Link</button>
     </div>
   </div>
@@ -574,7 +670,13 @@
     <div style="font-size:40px;margin-bottom:12px">⚡</div>
     <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">No strategies added yet</div>
     <div style="font-size:12px;margin-bottom:16px">Add your Tradetron strategy links to track them here</div>
-    <button class="ai-btn" style="width:auto;padding:8px 20px" onclick="openLinkModal()">+ Add First Strategy</button>
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap">
+      <button class="ai-btn" style="width:auto;padding:8px 20px" onclick="openLinkModal()">+ Add First Strategy</button>
+      <a href="https://tradetron.tech/?ref=algosanchay" target="_blank" rel="noopener noreferrer"
+         style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;background:#f59e0b;color:#fff;border-radius:7px;font-size:13px;font-weight:700;text-decoration:none">
+        ⚡ New to Tradetron? Sign Up ↗
+      </a>
+    </div>
   </div>
 </div><!-- /tradetron -->
 
